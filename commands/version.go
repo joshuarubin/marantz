@@ -14,3 +14,7 @@ var versionCmd = &cobra.Command{
 		fmt.Println("marantz v0.0.1")
 	},
 }
+
+func init() {
+	marantzCmd.AddCommand(versionCmd)
+}

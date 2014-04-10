@@ -1,26 +1,22 @@
 package commands
 
 import (
-	"fmt"
 	"log"
-	"os"
 	"os/user"
 
+	"github.com/joshuarubin/viper"
 	"github.com/spf13/cobra"
-	//jww "github.com/spf13/jwalterweatherman"
-	"github.com/spf13/viper"
 )
 
-var marantzCmd = &cobra.Command{
-	Use:   "marantz",
-	Short: "Marantz is an app for controlling Marantz receivers",
-	Long:  `Contains both a client and server for communicating over local and remote networks`,
-}
+var (
+	verbose bool // TODO(jrubin) use this flag
 
-var Config struct {
-	Verbose bool
-	//File    string
-}
+	marantzCmd = &cobra.Command{
+		Use:   "marantz",
+		Short: "Marantz is an app for controlling Marantz receivers",
+		Long:  `Contains both a client and server for communicating over local and remote networks`,
+	}
+)
 
 func homeDir() string {
 	u, err := user.Current()
@@ -32,35 +28,20 @@ func homeDir() string {
 }
 
 func init() {
-	//jww.SetLogThreshold(jww.LevelTrace)
-	//jww.SetStdoutThreshold(jww.LevelInfo)
-
 	viper.AddConfigPath("/etc/marantz")
-	viper.AddConfigPath(fmt.Sprintf("%s/.marantz", homeDir()))
+	viper.AddConfigPath(homeDir() + "/.marantz")
 
 	viper.SetConfigName("config")
 
-	viper.SetDefault("server", map[string]interface{}{
-		"listen": map[string]interface{}{
-			"address": "0.0.0.0",
-			"port":    6932,
-		},
-	})
-
-	viper.ReadInConfig()
-
-	marantzCmd.PersistentFlags().BoolVarP(&Config.Verbose, "verbose", "v", false, "verbose output")
-	//marantzCmd.PersistentFlags().StringVar(&Config.File, "config", "", "config file (default is [/etc/marantz|~/.marantz]/config.[yaml|json|toml])")
+	marantzCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 }
 
-func Execute() {
-	//viper.Debug()
-
-	marantzCmd.AddCommand(versionCmd)
-	//marantzCmd.AddCommand(serverCmd)
-
-	if err := marantzCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+func Execute() error {
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.UnsupportedConfigError); !ok {
+			return err
+		}
 	}
+
+	return marantzCmd.Execute()
 }

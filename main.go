@@ -1,7 +1,15 @@
 package main
 
-import "github.com/joshuarubin/marantz/commands"
+import (
+	"fmt"
+	"os"
+
+	"github.com/joshuarubin/marantz/commands"
+)
 
 func main() {
-	commands.Execute()
+	if err := commands.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
 }
