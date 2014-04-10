@@ -1,13 +1,12 @@
 package commands
 
 import (
-	"fmt"
-	"io"
+	"log"
 	"os"
 
+	"github.com/joshuarubin/marantz/serialport"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	serial "github.com/tarm/goserial"
 )
 
 const (
@@ -16,7 +15,7 @@ const (
 )
 
 var (
-	serialCfg serial.Config
+	serialPort serialport.SerialPort
 
 	serverCmd = &cobra.Command{
 		Use:   "server",
@@ -25,27 +24,17 @@ var (
 		Run:   server,
 	}
 
-	serialCh struct {
-		read  chan []byte
-		write chan []byte
-		err   chan error
-	}
-
 	serverCmdP *cobra.Command
 )
 
 func init() {
-	serialCh.read = make(chan []byte, 128)
-	serialCh.write = make(chan []byte, 128)
-	serialCh.err = make(chan error, 128)
-
 	viper.SetDefault("serial", map[string]interface{}{
 		"port": defaultSerialPort,
 		"baud": defaultBaudRate,
 	})
 
-	serverCmd.Flags().StringVarP(&serialCfg.Name, "serial", "s", defaultSerialPort, "serial port")
-	serverCmd.Flags().IntVarP(&serialCfg.Baud, "baud", "b", defaultBaudRate, "serial port baud rate")
+	serverCmd.Flags().StringVarP(&serialPort.Config.Name, "serial", "s", defaultSerialPort, "serial port")
+	serverCmd.Flags().IntVarP(&serialPort.Config.Baud, "baud", "b", defaultBaudRate, "serial port baud rate")
 
 	serverCmdP = serverCmd
 
@@ -58,51 +47,28 @@ func initSerialConfig() {
 	s := viper.GetStringMap("serial")
 
 	if !serverCmdP.Flags().Lookup("serial").Changed {
-		serialCfg.Name = s["port"].(string)
+		serialPort.Config.Name = s["port"].(string)
 	}
 
 	if !serverCmdP.Flags().Lookup("baud").Changed {
-		serialCfg.Baud = s["baud"].(int)
-	}
-}
-
-func serialWatcher(s io.ReadWriteCloser) {
-	// serial reader
-	go func() {
-		buf := make([]byte, 128)
-		n, err := s.Read(buf)
-		if err != nil {
-			serialCh.err <- err
-		} else {
-			serialCh.read <- buf[:n]
-		}
-	}()
-
-	for val := range serialCh.write {
-		_, err := s.Write(val)
-		if err != nil {
-			serialCh.err <- err
-		}
+		serialPort.Config.Baud = s["baud"].(int)
 	}
 }
 
 func server(cmd *cobra.Command, args []string) {
 	initSerialConfig()
 
-	s, err := serial.OpenPort(&serialCfg)
-	if err != nil {
-		fmt.Println(err)
+	if err := serialPort.Start(); err != nil {
+		log.Println("serial port start error", err)
 		os.Exit(-1)
 	}
 
-	go serialWatcher(s)
+	serialPort.Write <- "AST:F"
 
 	for {
 		select {
-		case data := <-serialCh.read:
-			fmt.Println("serial read", data)
-		case err := <-serialCh.err:
-			fmt.Println("serial err", err)
+		case data := <-serialPort.Read:
+			log.Println("serial read", len(data), data)
 		}
 	}
 }

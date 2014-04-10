@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"log"
 	"os/user"
 
 	"github.com/joshuarubin/viper"
@@ -29,9 +28,11 @@ var (
 )
 
 func homeDir() string {
+	defer recover() // user.Current is not supported on linux/arm
+
 	u, err := user.Current()
 	if err != nil {
-		log.Fatal(err)
+		return ""
 	}
 
 	return u.HomeDir
@@ -39,7 +40,9 @@ func homeDir() string {
 
 func init() {
 	viper.AddConfigPath("/etc/marantz")
-	viper.AddConfigPath(homeDir() + "/.marantz")
+	if hd := homeDir(); len(hd) > 0 {
+		viper.AddConfigPath(hd + "/.marantz")
+	}
 
 	viper.SetConfigName("config")
 
