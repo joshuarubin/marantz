@@ -12,6 +12,7 @@ const (
 type cmd struct {
 	op  operation
 	ch  chan string
+	rch <-chan string
 	msg string
 }
 
@@ -36,7 +37,7 @@ func (p *PubSub) start() {
 				p.subs = append(p.subs, cmd.ch)
 			case unsub:
 				for i, test := range p.subs {
-					if test == cmd.ch {
+					if test == cmd.rch {
 						p.subs = append(p.subs[:i], p.subs[i+1:]...)
 						break
 					}
@@ -61,10 +62,10 @@ func (p *PubSub) Sub() <-chan string {
 	return ch
 }
 
-func (p *PubSub) UnSub(ch chan string) {
+func (p *PubSub) UnSub(ch <-chan string) {
 	p.ch <- cmd{
-		op: unsub,
-		ch: ch,
+		op:  unsub,
+		rch: ch,
 	}
 }
 

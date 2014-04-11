@@ -3,6 +3,7 @@ package commands
 import (
 	"os/user"
 
+	"github.com/joshuarubin/marantz/server"
 	"github.com/joshuarubin/viper"
 	"github.com/spf13/cobra"
 )
@@ -14,11 +15,7 @@ const (
 
 var (
 	verbose bool // TODO(jrubin) use this flag
-
-	serverCfg struct {
-		host string
-		port uint
-	}
+	srv     server.Server
 
 	marantzCmd = &cobra.Command{
 		Use:   "marantz",
@@ -52,19 +49,19 @@ func init() {
 	})
 
 	marantzCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	marantzCmd.PersistentFlags().StringVarP(&serverCfg.host, "host", "h", defaultServerHost, "server host name (remote for client commands, listen for server)")
-	marantzCmd.PersistentFlags().UintVarP(&serverCfg.port, "port", "p", defaultServerPort, "server port")
+	marantzCmd.PersistentFlags().StringVarP(&srv.Config.Host, "host", "h", defaultServerHost, "server host name (remote for client commands, listen for server)")
+	marantzCmd.PersistentFlags().UintVarP(&srv.Config.Port, "port", "p", defaultServerPort, "server port")
 }
 
 func initServerConfig() {
 	s := viper.GetStringMap("server")
 
 	if !marantzCmd.PersistentFlags().Lookup("host").Changed {
-		serverCfg.host = s["host"].(string)
+		srv.Config.Host = s["host"].(string)
 	}
 
 	if !marantzCmd.PersistentFlags().Lookup("port").Changed {
-		serverCfg.port = s["port"].(uint)
+		srv.Config.Port = s["port"].(uint)
 	}
 }
 

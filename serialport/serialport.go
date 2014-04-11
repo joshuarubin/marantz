@@ -78,6 +78,6 @@ func (s *SerialPort) Sub() <-chan string {
 	return s.ps.Sub()
 }
 
-func (s *SerialPort) UnSub(ch chan string) {
+func (s *SerialPort) UnSub(ch <-chan string) {
 	s.ps.UnSub(ch)
 }
