@@ -57,11 +57,21 @@ func initServerConfig() {
 	s := viper.GetStringMap("server")
 
 	if !marantzCmd.PersistentFlags().Lookup("host").Changed {
-		srv.Config.Host = s["host"].(string)
+		host := s["host"]
+		if host == nil {
+			srv.Config.Host = defaultServerHost
+		} else {
+			srv.Config.Host = s["host"].(string)
+		}
 	}
 
 	if !marantzCmd.PersistentFlags().Lookup("port").Changed {
-		srv.Config.Port = s["port"].(uint)
+		port := s["port"]
+		if port == nil {
+			srv.Config.Port = defaultServerPort
+		} else {
+			srv.Config.Port = s["port"].(uint)
+		}
 	}
 }
 
