@@ -7,49 +7,31 @@ import (
 	"log"
 	"strings"
 
+	"github.com/joshuarubin/marantz/pubsub"
+
 	serial "github.com/tarm/goserial"
 )
 
 type SerialPort struct {
-	Read   <-chan string
 	Write  chan<- string
 	Config serial.Config
 	port   io.ReadWriteCloser
 	opened bool
+	ps     *pubsub.PubSub
 }
 
-func (s *SerialPort) open() (err error) {
-	if s.opened {
-		return nil
-	}
+func (s *SerialPort) reader() {
+	rd := bufio.NewReader(s.port)
 
-	s.port, err = serial.OpenPort(&s.Config)
-	if err != nil {
-		return err
-	}
+	for {
+		str, err := rd.ReadString('\r')
 
-	s.opened = true
-	return nil
-}
+		s.ps.Pub(strings.Trim(str, "@\r"))
 
-func (s *SerialPort) reader() <-chan string {
-	ch := make(chan string)
-
-	go func() {
-		rd := bufio.NewReader(s.port)
-
-		for {
-			str, err := rd.ReadString('\r')
-			str = strings.Trim(str, "@\r")
-			ch <- str
-
-			if err != nil {
-				log.Println("SerialPort::reader error", err)
-			}
+		if err != nil {
+			log.Println("SerialPort::reader error", err)
 		}
-	}()
-
-	return ch
+	}
 }
 
 func (s *SerialPort) writer() chan<- string {
@@ -68,18 +50,34 @@ func (s *SerialPort) writer() chan<- string {
 	return ch
 }
 
-func (s *SerialPort) Start() error {
-	if err := s.open(); err != nil {
+func (s *SerialPort) Open() (err error) {
+	if s.opened {
+		return nil
+	}
+
+	s.port, err = serial.OpenPort(&s.Config)
+	if err != nil {
 		return err
 	}
 
-	if s.Read == nil {
-		s.Read = s.reader()
+	if s.ps == nil {
+		s.ps = pubsub.New()
 	}
+
+	go s.reader()
 
 	if s.Write == nil {
 		s.Write = s.writer()
 	}
 
+	s.opened = true
 	return nil
+}
+
+func (s *SerialPort) Sub() <-chan string {
+	return s.ps.Sub()
+}
+
+func (s *SerialPort) UnSub(ch chan string) {
+	s.ps.UnSub(ch)
 }
