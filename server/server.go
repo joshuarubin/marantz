@@ -59,7 +59,7 @@ func (s *Server) connReader(conn net.Conn) <-chan string {
 }
 
 func (s *Server) onConn(conn net.Conn) {
-	serialCh := s.Serial.Sub()
+	serialCh, _ := s.Serial.Sub()
 	defer s.Serial.UnSub(serialCh)
 
 	ch := s.connReader(conn)

@@ -13,11 +13,11 @@ import (
 )
 
 type SerialPort struct {
+	*pubsub.PubSub
 	Write  chan<- string
 	Config serial.Config
 	port   io.ReadWriteCloser
 	opened bool
-	ps     *pubsub.PubSub
 }
 
 func (s *SerialPort) reader() {
@@ -25,7 +25,7 @@ func (s *SerialPort) reader() {
 
 	for {
 		str, err := rd.ReadString('\r')
-		s.ps.Pub(strings.Trim(str, "@\r"))
+		s.Pub(strings.Trim(str, "@\r"))
 
 		if err != nil {
 			log.Println("SerialPort::reader error", err)
@@ -59,8 +59,8 @@ func (s *SerialPort) Open() (err error) {
 		return err
 	}
 
-	if s.ps == nil {
-		s.ps = pubsub.New()
+	if s.PubSub == nil {
+		s.PubSub = pubsub.New()
 	}
 
 	go s.reader()
@@ -71,13 +71,4 @@ func (s *SerialPort) Open() (err error) {
 
 	s.opened = true
 	return nil
-}
-
-func (s *SerialPort) Sub() <-chan interface{} {
-	ret, _ := s.ps.Sub()
-	return ret
-}
-
-func (s *SerialPort) UnSub(ch <-chan interface{}) {
-	s.ps.UnSub(ch)
 }
