@@ -7,13 +7,13 @@ import (
 	"log"
 	"strings"
 
-	"github.com/joshuarubin/marantz/pubsub"
+	"github.com/joshuarubin/chanpubsub"
 
 	serial "github.com/tarm/goserial"
 )
 
 type SerialPort struct {
-	*pubsub.PubSub
+	*chanpubsub.ChanPubSub
 	Write  chan<- string
 	Config serial.Config
 	port   io.ReadWriteCloser
@@ -59,8 +59,8 @@ func (s *SerialPort) Open() (err error) {
 		return err
 	}
 
-	if s.PubSub == nil {
-		s.PubSub = pubsub.New()
+	if s.ChanPubSub == nil {
+		s.ChanPubSub = chanpubsub.New()
 	}
 
 	go s.reader()
