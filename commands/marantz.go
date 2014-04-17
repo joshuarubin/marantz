@@ -14,8 +14,7 @@ const (
 )
 
 var (
-	verbose bool // TODO(jrubin) use this flag
-	srv     server.Server
+	srv server.Server
 
 	marantzCmd = &cobra.Command{
 		Use:   "marantz",
@@ -47,31 +46,23 @@ func init() {
 		"host": defaultServerHost,
 		"port": defaultServerPort,
 	})
-
-	marantzCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	marantzCmd.PersistentFlags().StringVarP(&srv.Config.Host, "host", "h", defaultServerHost, "server host name (remote for client commands, listen for server)")
-	marantzCmd.PersistentFlags().UintVarP(&srv.Config.Port, "port", "p", defaultServerPort, "server port")
 }
 
 func initServerConfig() {
 	s := viper.GetStringMap("server")
 
-	if !marantzCmd.PersistentFlags().Lookup("host").Changed {
-		host := s["host"]
-		if host == nil {
-			srv.Config.Host = defaultServerHost
-		} else {
-			srv.Config.Host = s["host"].(string)
-		}
+	host := s["host"]
+	if host == nil {
+		srv.Config.Host = defaultServerHost
+	} else {
+		srv.Config.Host = host.(string)
 	}
 
-	if !marantzCmd.PersistentFlags().Lookup("port").Changed {
-		port := s["port"]
-		if port == nil {
-			srv.Config.Port = defaultServerPort
-		} else {
-			srv.Config.Port = s["port"].(uint)
-		}
+	port := s["port"]
+	if port == nil {
+		srv.Config.Port = defaultServerPort
+	} else {
+		srv.Config.Port = port.(uint)
 	}
 }
 

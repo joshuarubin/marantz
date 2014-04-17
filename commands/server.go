@@ -42,22 +42,18 @@ func initSerialConfig() {
 
 	s := viper.GetStringMap("serial")
 
-	if !serverCmdP.Flags().Lookup("serial").Changed {
-		port := s["port"]
-		if port == nil {
-			srv.Serial.Config.Name = defaultSerialPort
-		} else {
-			srv.Serial.Config.Name = s["port"].(string)
-		}
+	port := s["port"]
+	if port == nil {
+		srv.Serial.Config.Name = defaultSerialPort
+	} else {
+		srv.Serial.Config.Name = port.(string)
 	}
 
-	if !serverCmdP.Flags().Lookup("baud").Changed {
-		baud := s["baud"]
-		if baud == nil {
-			srv.Serial.Config.Baud = defaultBaudRate
-		} else {
-			srv.Serial.Config.Baud = s["baud"].(int)
-		}
+	baud := s["baud"]
+	if baud == nil {
+		srv.Serial.Config.Baud = defaultBaudRate
+	} else {
+		srv.Serial.Config.Baud = baud.(int)
 	}
 }
 

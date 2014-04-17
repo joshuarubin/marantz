@@ -10,13 +10,19 @@ import (
 	"github.com/joshuarubin/marantz/serialport"
 )
 
+type HostConfig struct {
+	Host string
+	Port uint
+}
+
+func (c *HostConfig) String() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
 type Server struct {
 	listener net.Listener
-	Config   struct {
-		Host string
-		Port uint
-	}
-	Serial serialport.SerialPort
+	Config   HostConfig
+	Serial   serialport.SerialPort
 }
 
 func (s *Server) Start() {
@@ -80,9 +86,10 @@ func (s *Server) onConn(conn net.Conn) {
 
 			s.Serial.Write <- msg
 		case msg := <-serialCh:
-			_, err := conn.Write([]byte(fmt.Sprintf("%s\n", msg)))
+			_, err := fmt.Fprintf(conn, "%s\n", msg)
 			if err != nil {
 				log.Println("conn write error", err)
+				return
 			}
 		}
 	}
