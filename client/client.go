@@ -47,16 +47,36 @@ func (c *Client) Pwr(val ...bool) {
 	}
 }
 
-func (c *Client) Vol(val ...int) {
-	// TODO(jrubin) work with .0 and .5 values
-	const cmd = "VOL"
-	const scale = 72
-	const max = 90
+type VolMode int
+
+const (
+	VolModeGet VolMode = iota
+	VolModeUp
+	VolModeDown
+	VolModeUpFast
+	VolModeDownFast
+	VolModeSet
+)
+
+type VolMsg struct {
+	Mode VolMode
+	Val  int
+}
+
+func (c *Client) Vol(msg VolMsg) {
+	const (
+		cmd   = "VOL"
+		scale = 72
+		max   = 90
+	)
 
 	var res string
 
-	if len(val) > 0 {
-		intVal := float32(val[0])
+	switch msg.Mode {
+	case VolModeGet:
+		res = c.cmd(cmd)
+	case VolModeSet:
+		intVal := float32(msg.Val)
 		if intVal <= 0 {
 			intVal = -scale
 		} else if intVal >= 100 {
@@ -64,10 +84,9 @@ func (c *Client) Vol(val ...int) {
 		} else {
 			intVal = (intVal / 100 * max) - scale
 		}
-		msg := fmt.Sprintf("0%+02.0f", intVal)
-		res = c.cmd(cmd, msg)
-	} else {
-		res = c.cmd(cmd)
+		res = c.cmd(cmd, fmt.Sprintf("0%+02.0f", intVal))
+	default:
+		res = c.cmd(cmd, fmt.Sprintf("%d", msg.Mode))
 	}
 
 	var floatRes float32
@@ -93,11 +112,14 @@ func (c *Client) cmd(cmd string, val ...string) string {
 		os.Exit(-1)
 	}
 
+	msg := ""
 	if len(val) > 0 {
-		_, err = fmt.Fprintf(conn, "%s:%s\n", cmd, val[0])
+		msg = fmt.Sprintf("%s:%s", cmd, val[0])
 	} else {
-		_, err = fmt.Fprintf(conn, "%s:?\n", cmd)
+		msg = fmt.Sprintf("%s:?", cmd)
 	}
+
+	_, err = fmt.Fprintf(conn, "%s\n", msg)
 
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
