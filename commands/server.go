@@ -11,7 +11,7 @@ const (
 )
 
 var (
-	quitCh = make(chan bool)
+	quitCh = make(chan struct{})
 
 	serverCmd = &cobra.Command{
 		Use:   "server",
@@ -59,7 +59,6 @@ func initSerialConfig() {
 
 func serverMain(cmd *cobra.Command, args []string) {
 	initSerialConfig()
-	srv.Start()
-	srv.Serial.Write <- "AST:F"
+	go srv.Start()
 	<-quitCh
 }

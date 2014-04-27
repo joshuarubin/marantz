@@ -1,14 +1,14 @@
 package server
 
 import (
-	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	"code.google.com/p/goprotobuf/proto"
-
 	"github.com/joshuarubin/marantz/msg"
 	"github.com/joshuarubin/marantz/serialport"
 )
@@ -28,63 +28,70 @@ type Server struct {
 	Serial   serialport.SerialPort
 }
 
-func (s *Server) Start() {
-	var err error
-
-	if err = s.Serial.Open(); err != nil {
+func (srv *Server) Start() {
+	if err := srv.Serial.Open(); err != nil {
 		log.Println("serial port open error", err)
 		os.Exit(-1)
 	}
 
-	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.Config.Host, s.Config.Port))
-	if err != nil {
-		log.Println("tcp listen error", err)
-		os.Exit(-1)
+	srv.Serial.Write <- "AST:F"
+
+	http.HandleFunc("/cmd", srv.cmdHandler)
+	log.Fatal(http.ListenAndServe(srv.Config.String(), nil))
+}
+
+func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" {
+		http.Error(w, "Invalid Method: "+r.Method, 400)
+		log.Println("Invalid Method: " + r.Method + " (400)")
+		return
 	}
 
-	go s.listen()
+	data, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		http.Error(w, "Read Error", 500)
+		log.Println("Read Error (500)", err)
+		return
+	}
+
+	cmd := &msg.Cmd{}
+	if err := proto.Unmarshal(data, cmd); err != nil {
+		http.Error(w, "Unmarshal Error", 400)
+		log.Println("Unmarshal Error (400)", err)
+		return
+	}
+
+	switch *cmd.Cmd {
+	case msg.Cmd_CMD_RAW:
+		srv.Serial.Write <- *cmd.StrValue
+	case msg.Cmd_CMD_PWR:
+		srv.onCmdPwr(cmd)
+	case msg.Cmd_CMD_VOL:
+		srv.onCmdVol(cmd)
+	}
+
+	serialCh, _ := srv.Serial.Sub()
+	defer srv.Serial.UnSub(serialCh)
+
+	// TODO(jrubin) wait for the 'correct' response for the given command
+	msg := <-serialCh
+
+	// TODO(jrubin) send a protobuf response
+	_, err = fmt.Fprintf(w, "%s\n", msg)
+	if err != nil {
+		http.Error(w, "Write Error", 500)
+		log.Println("Write Error (500)", err)
+		return
+	}
 }
 
-func (s *Server) connReader(conn net.Conn) <-chan *msg.Cmd {
-	ch := make(chan *msg.Cmd)
+/*
+func (srv *Server) onConn(conn net.Conn) {
+	serialCh, _ := srv.Serial.Sub()
+	defer srv.Serial.UnSub(serialCh)
 
-	go func() {
-		var l int16
-		err := binary.Read(conn, binary.LittleEndian, &l)
-		if err != nil {
-			close(ch)
-			log.Println("binary read error", err)
-			return
-		}
-
-		data := make([]byte, l)
-		err = binary.Read(conn, binary.LittleEndian, &data)
-		if err != nil {
-			close(ch)
-			log.Println("binary read error", err)
-			return
-		}
-
-		cmds := &msg.Cmds{}
-		if err := proto.Unmarshal(data, cmds); err != nil {
-			close(ch)
-			log.Println("unmarshal error", err)
-			return
-		}
-
-		for _, cmd := range cmds.Cmd {
-			ch <- cmd
-		}
-	}()
-
-	return ch
-}
-
-func (s *Server) onConn(conn net.Conn) {
-	serialCh, _ := s.Serial.Sub()
-	defer s.Serial.UnSub(serialCh)
-
-	ch := s.connReader(conn)
+	ch := srv.connReader(conn)
 
 	for {
 		select {
@@ -93,19 +100,6 @@ func (s *Server) onConn(conn net.Conn) {
 				return
 			}
 
-			switch *cmd.Cmd {
-			case msg.Cmd_CMD_CLOSE:
-				if err := conn.Close(); err != nil {
-					log.Println("conn close error", err)
-				}
-				return
-			case msg.Cmd_CMD_RAW:
-				s.Serial.Write <- *cmd.StrValue
-			case msg.Cmd_CMD_PWR:
-				s.onCmdPwr(cmd)
-			case msg.Cmd_CMD_VOL:
-				s.onCmdVol(cmd)
-			}
 		case msg := <-serialCh:
 			// TODO(jrubin) send a protobuf response
 			_, err := fmt.Fprintf(conn, "%s\n", msg)
@@ -116,29 +110,17 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 }
+*/
 
-func (s *Server) listen() {
-	defer log.Println("Server.listen returned") // TODO(jrubin) ensure there is a way to stop this
-
-	for {
-		conn, err := s.listener.Accept()
-		if err != nil {
-			log.Println("tcp connection error", err)
-		} else {
-			go s.onConn(conn)
-		}
-	}
-}
-
-func (s *Server) onCmdPwr(cmd *msg.Cmd) {
+func (srv *Server) onCmdPwr(cmd *msg.Cmd) {
 	const CMD = "PWR"
 
 	if cmd.Pwr == nil {
-		s.Serial.Write <- CMD + ":?"
+		srv.Serial.Write <- CMD + ":?"
 		return
 	}
 
-	s.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Pwr)
+	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Pwr)
 }
 
 /*
@@ -157,7 +139,7 @@ func (s *Server) onCmdPwr(cmd *msg.Cmd) {
  *    fmt.Printf("%.0f\n", floatRes/max*100)
  */
 
-func (s *Server) onCmdVol(cmd *msg.Cmd) {
+func (srv *Server) onCmdVol(cmd *msg.Cmd) {
 	const (
 		CMD   = "VOL"
 		SCALE = 72
@@ -175,14 +157,14 @@ func (s *Server) onCmdVol(cmd *msg.Cmd) {
 			val = (val / 100 * MAX) - SCALE
 		}
 
-		s.Serial.Write <- fmt.Sprintf("%s:0%+02.0f", CMD, val)
+		srv.Serial.Write <- fmt.Sprintf("%s:0%+02.0f", CMD, val)
 		return
 	}
 
 	if cmd.Vol == nil {
-		s.Serial.Write <- CMD + ":?"
+		srv.Serial.Write <- CMD + ":?"
 		return
 	}
 
-	s.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Vol)
+	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Vol)
 }

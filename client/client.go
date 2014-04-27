@@ -1,77 +1,43 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
-	"encoding/binary"
 	"fmt"
-	"net"
+	"io/ioutil"
+	"net/http"
 	"os"
-	"strings"
 
 	"code.google.com/p/goprotobuf/proto"
-
 	"github.com/joshuarubin/marantz/msg"
 )
 
 func SendCmd(host string, cmd *msg.Cmd) {
-	conn, err := net.Dial("tcp", host)
-
+	data, err := proto.Marshal(cmd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 
-	defer conn.Close()
-	buf := new(bytes.Buffer)
-
-	cmds := &msg.Cmds{
-		Cmd: []*msg.Cmd{cmd},
-	}
-
-	data, err := proto.Marshal(cmds)
+	req, err := http.NewRequest("PUT", "http://"+host+"/cmd", bytes.NewBuffer(data))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 
-	err = binary.Write(buf, binary.LittleEndian, int16(len(data)))
+	// req.Header.Set("Content-Type", bodyType)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 
-	err = binary.Write(buf, binary.LittleEndian, data)
+	data, err = ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 
-	_, err = buf.WriteTo(conn)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(-1)
-	}
-
-	// presuming all Cmd names begin with "CMD_"
-	cmdName := msg.Cmd_Cmd_name[int32(cmd.GetCmd())][4:]
-
-	rd := bufio.NewScanner(conn)
-
-	// TODO(jrubin) parse pb response
-	for rd.Scan() {
-		parts := strings.Split(rd.Text(), ":")
-		if parts[0] == cmdName {
-			fmt.Println(parts[1])
-			return
-		}
-	}
-
-	if err := rd.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(-1)
-	}
-
-	fmt.Fprintln(os.Stderr, "Unknown error")
-	os.Exit(-1)
+	fmt.Printf("%s\n", data)
 }
