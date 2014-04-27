@@ -25,11 +25,14 @@ func (s *SerialPort) reader() {
 
 	for {
 		str, err := rd.ReadString('\r')
-		s.Pub(strings.Trim(str, "@\r"))
 
 		if err != nil {
 			log.Println("SerialPort::reader error", err)
 		}
+
+		str = strings.Trim(str, "@\r")
+		log.Println("SERIAL ->", str)
+		s.Pub(str)
 	}
 }
 
@@ -38,7 +41,9 @@ func (s *SerialPort) writer() chan<- string {
 
 	go func() {
 		for str := range ch {
-			str = fmt.Sprintf("@%s\r", strings.ToUpper(str))
+			str = strings.ToUpper(str)
+			log.Println("SERIAL <-", str)
+			str = fmt.Sprintf("@%s\r", str)
 			_, err := s.port.Write([]byte(str))
 			if err != nil {
 				log.Println("SerialPort::writer error", err)

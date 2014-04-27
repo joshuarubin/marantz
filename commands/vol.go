@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"code.google.com/p/goprotobuf/proto"
 	"github.com/joshuarubin/marantz/client"
+	"github.com/joshuarubin/marantz/msg"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +17,9 @@ func init() {
 		Use:   "vol",
 		Short: "Set or get receiver power status",
 		Long:  `Set or get receiver power status`,
-		Run:   volMain,
+		Run: func(*cobra.Command, []string) {
+			volCmd(nil)
+		},
 	}
 
 	vol.cmd.AddCommand(&cobra.Command{
@@ -23,10 +27,7 @@ func init() {
 		Short: "Increase volume",
 		Long:  `Increase volume`,
 		Run: func(*cobra.Command, []string) {
-			initServerConfig()
-			client.New(&srv).Vol(client.VolMsg{
-				Mode: client.VolModeUp,
-			})
+			volCmd(msg.Cmd_VOL_UP.Enum())
 		},
 	})
 
@@ -35,10 +36,7 @@ func init() {
 		Short: "Decrease volume",
 		Long:  `Decrease volume`,
 		Run: func(*cobra.Command, []string) {
-			initServerConfig()
-			client.New(&srv).Vol(client.VolMsg{
-				Mode: client.VolModeDown,
-			})
+			volCmd(msg.Cmd_VOL_DOWN.Enum())
 		},
 	})
 
@@ -47,10 +45,7 @@ func init() {
 		Short: "Fast increase volume",
 		Long:  `Fast increase volume`,
 		Run: func(*cobra.Command, []string) {
-			initServerConfig()
-			client.New(&srv).Vol(client.VolMsg{
-				Mode: client.VolModeUpFast,
-			})
+			volCmd(msg.Cmd_VOL_UP_FAST.Enum())
 		},
 	})
 
@@ -59,10 +54,7 @@ func init() {
 		Short: "Fast decrease volume",
 		Long:  `Fast decrease volume`,
 		Run: func(*cobra.Command, []string) {
-			initServerConfig()
-			client.New(&srv).Vol(client.VolMsg{
-				Mode: client.VolModeDownFast,
-			})
+			volCmd(msg.Cmd_VOL_DOWN_FAST.Enum())
 		},
 	})
 
@@ -71,18 +63,21 @@ func init() {
 	marantzCmd.AddCommand(vol.cmd)
 }
 
-func volMain(*cobra.Command, []string) {
+func volCmd(value *msg.Cmd_VolValue) {
 	initServerConfig()
 
-	if vol.cmd.Flags().Lookup("value").Changed {
-		client.New(&srv).Vol(client.VolMsg{
-			Mode: client.VolModeSet,
-			Val:  vol.value,
-		})
-		return
+	cmd := &msg.Cmd{
+		Cmd: msg.Cmd_CMD_VOL.Enum(),
 	}
 
-	client.New(&srv).Vol(client.VolMsg{
-		Mode: client.VolModeGet,
-	})
+	switch value {
+	case nil:
+		if vol.cmd.Flags().Lookup("value").Changed {
+			cmd.IntValue = proto.Int32(int32(vol.value))
+		}
+	default:
+		cmd.Vol = value
+	}
+
+	client.SendCmd(srv.Config.String(), cmd)
 }

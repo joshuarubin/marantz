@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/joshuarubin/marantz/client"
+	"github.com/joshuarubin/marantz/msg"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +13,9 @@ func init() {
 		Long:  `Set or get receiver power status`,
 		Run: func(*cobra.Command, []string) {
 			initServerConfig()
-			client.New(&srv).Pwr()
+			client.SendCmd(srv.Config.String(), &msg.Cmd{
+				Cmd: msg.Cmd_CMD_PWR.Enum(),
+			})
 		},
 	}
 
@@ -23,7 +26,10 @@ func init() {
 			Long:  "Turn receiver on",
 			Run: func(*cobra.Command, []string) {
 				initServerConfig()
-				client.New(&srv).Pwr(true)
+				client.SendCmd(srv.Config.String(), &msg.Cmd{
+					Cmd: msg.Cmd_CMD_PWR.Enum(),
+					Pwr: msg.Cmd_PWR_ON.Enum(),
+				})
 			},
 		})
 
@@ -34,7 +40,10 @@ func init() {
 			Long:  "Turn receiver off",
 			Run: func(*cobra.Command, []string) {
 				initServerConfig()
-				client.New(&srv).Pwr(false)
+				client.SendCmd(srv.Config.String(), &msg.Cmd{
+					Cmd: msg.Cmd_CMD_PWR.Enum(),
+					Pwr: msg.Cmd_PWR_OFF.Enum(),
+				})
 			},
 		})
 

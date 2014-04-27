@@ -1,0 +1,7 @@
+package msg;
+
+import "cmd.proto";
+
+message Cmds {
+  repeated Cmd cmd = 1;
+}

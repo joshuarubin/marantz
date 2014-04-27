@@ -1,0 +1,28 @@
+package msg;
+
+message Cmd {
+  enum Cmd {
+    CMD_CLOSE = 0;
+    CMD_RAW   = 1;
+    CMD_PWR   = 2;
+    CMD_VOL   = 3;
+  }
+
+  enum PwrValue {
+    PWR_OFF = 1;
+    PWR_ON  = 2;
+  }
+
+  enum VolValue {
+    VOL_UP        = 1;
+    VOL_DOWN      = 2;
+    VOL_UP_FAST   = 3;
+    VOL_DOWN_FAST = 4;
+  }
+
+  required Cmd           cmd = 1;
+  optional int32    intValue = 2;
+  optional string   strValue = 3;
+  optional PwrValue      pwr = 4;
+  optional VolValue      vol = 5;
+}
