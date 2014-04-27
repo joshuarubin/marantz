@@ -1,11 +1,12 @@
 package commands
 
 import (
+	"log"
 	"os/user"
 
 	"github.com/joshuarubin/marantz/server"
-	"github.com/joshuarubin/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -14,8 +15,7 @@ const (
 )
 
 var (
-	srv server.Server
-
+	srv        server.Server
 	marantzCmd = &cobra.Command{
 		Use:   "marantz",
 		Short: "Marantz is an app for controlling Marantz receivers",
@@ -66,12 +66,14 @@ func initServerConfig() {
 	}
 }
 
-func Execute() error {
+func Execute() {
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.UnsupportedConfigError); !ok {
-			return err
+			log.Fatal(err)
 		}
 	}
 
-	return marantzCmd.Execute()
+	if err := marantzCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }

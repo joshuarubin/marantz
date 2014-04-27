@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 
 	"code.google.com/p/goprotobuf/proto"
 	"github.com/joshuarubin/marantz/msg"
@@ -30,14 +29,13 @@ type Server struct {
 
 func (srv *Server) Start() {
 	if err := srv.Serial.Open(); err != nil {
-		log.Println("serial port open error", err)
-		os.Exit(-1)
+		log.Fatalln("serial port open error", err)
 	}
 
 	srv.Serial.Write <- "AST:F"
 
 	http.HandleFunc("/cmd", srv.cmdHandler)
-	log.Fatal(http.ListenAndServe(srv.Config.String(), nil))
+	log.Fatalln(http.ListenAndServe(srv.Config.String(), nil))
 }
 
 func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +60,9 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	serialCh, _ := srv.Serial.Sub()
+	defer srv.Serial.UnSub(serialCh)
+
 	switch *cmd.Cmd {
 	case msg.Cmd_CMD_RAW:
 		srv.Serial.Write <- *cmd.StrValue
@@ -70,9 +71,6 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 	case msg.Cmd_CMD_VOL:
 		srv.onCmdVol(cmd)
 	}
-
-	serialCh, _ := srv.Serial.Sub()
-	defer srv.Serial.UnSub(serialCh)
 
 	// TODO(jrubin) wait for the 'correct' response for the given command
 	msg := <-serialCh
@@ -85,32 +83,6 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-
-/*
-func (srv *Server) onConn(conn net.Conn) {
-	serialCh, _ := srv.Serial.Sub()
-	defer srv.Serial.UnSub(serialCh)
-
-	ch := srv.connReader(conn)
-
-	for {
-		select {
-		case cmd, ok := <-ch:
-			if !ok {
-				return
-			}
-
-		case msg := <-serialCh:
-			// TODO(jrubin) send a protobuf response
-			_, err := fmt.Fprintf(conn, "%s\n", msg)
-			if err != nil {
-				log.Println("conn write error", err)
-				return
-			}
-		}
-	}
-}
-*/
 
 func (srv *Server) onCmdPwr(cmd *msg.Cmd) {
 	const CMD = "PWR"
