@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"code.google.com/p/goprotobuf/proto"
+	"code.google.com/p/gogoprotobuf/proto"
 	"github.com/joshuarubin/marantz/msg"
 	"github.com/joshuarubin/marantz/serialport"
 )
