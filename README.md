@@ -1,4 +1,4 @@
-marantz ![Marantz](http://us.marantz.com/assets/images/products/S_no-image.png)
+![Marantz](http://us.marantz.com/assets/images/products/S_no-image.png)
 ===============================================================================
 
 A command line remote control app (server and client) for my Marantz SR7001
