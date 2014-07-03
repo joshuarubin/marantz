@@ -10,6 +10,11 @@ const (
 	defaultBaudRate   = 9600
 )
 
+type flags struct {
+	port string
+	baud int
+}
+
 var (
 	quitCh = make(chan struct{})
 
@@ -21,6 +26,8 @@ var (
 	}
 
 	serverCmdP *cobra.Command
+
+	f flags
 )
 
 func init() {
@@ -29,8 +36,8 @@ func init() {
 		"baud": defaultBaudRate,
 	})
 
-	serverCmd.Flags().StringVarP(&srv.Serial.Config.Name, "serial", "s", defaultSerialPort, "serial port")
-	serverCmd.Flags().IntVarP(&srv.Serial.Config.Baud, "baud", "b", defaultBaudRate, "serial port baud rate")
+	serverCmd.Flags().StringVarP(&f.port, "serial", "s", defaultSerialPort, "serial port")
+	serverCmd.Flags().IntVarP(&f.baud, "baud", "b", defaultBaudRate, "serial port baud rate")
 
 	serverCmdP = serverCmd
 
@@ -54,6 +61,14 @@ func initSerialConfig() {
 		srv.Serial.Config.Baud = defaultBaudRate
 	} else {
 		srv.Serial.Config.Baud = baud.(int)
+	}
+
+	if f.port != defaultSerialPort {
+		srv.Serial.Config.Name = f.port
+	}
+
+	if f.baud != defaultBaudRate {
+		srv.Serial.Config.Baud = f.baud
 	}
 }
 
