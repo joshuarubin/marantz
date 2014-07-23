@@ -6,13 +6,23 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
 	"github.com/joshuarubin/marantz/msg"
 	"github.com/joshuarubin/marantz/serialport"
 )
 
-const GET = ":?"
+const (
+	GET       = ":?"
+	CMD_VOL   = "VOL"
+	CMD_PWR   = "PWR"
+	CMD_SRC   = "SRC"
+	VOL_SCALE = 72
+	VOL_MAX   = 90
+)
 
 type HostConfig struct {
 	Host string
@@ -62,9 +72,6 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serialCh, _ := srv.Serial.Sub()
-	defer srv.Serial.UnSub(serialCh)
-
 	switch *cmd.Cmd {
 	case msg.Cmd_CMD_RAW:
 		srv.Serial.Write <- *cmd.StrValue
@@ -76,93 +83,190 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 		srv.onCmdSrc(cmd)
 	}
 
-	// TODO(jrubin) wait for the 'correct' response for the given command
-	msg := <-serialCh
+	srv.sendResponse(w, cmd)
+}
+
+func (srv *Server) sendResponse(w http.ResponseWriter, cmd *msg.Cmd) {
+	serialCh, _ := srv.Serial.Sub()
+	defer srv.Serial.UnSub(serialCh)
+
+	for {
+		select {
+		case iface := <-serialCh:
+			if resp, ok := iface.(string); ok {
+				parts := strings.Split(resp, ":")
+				if len(parts) != 2 {
+					continue
+				}
+
+				resp := strings.TrimSpace(parts[1])
+
+				switch *cmd.Cmd {
+				case msg.Cmd_CMD_PWR:
+					if parts[0] == "PWR" {
+						srv.onRespPwr(w, cmd, resp)
+						return
+					}
+				case msg.Cmd_CMD_VOL:
+					if parts[0] == "VOL" {
+						srv.onRespVol(w, cmd, resp)
+						return
+					}
+				case msg.Cmd_CMD_SRC:
+					if parts[0] == "SRC" {
+						srv.onRespSrc(w, cmd, resp)
+						return
+					}
+				}
+			}
+		case <-time.After(time.Second):
+			http.Error(w, "Timeout waiting for response from receiver", 500)
+			log.Println("Timeout waiting for response from receiver (500)")
+			return
+		}
+	}
+
+}
+
+func (srv *Server) onRespPwr(w http.ResponseWriter, cmd *msg.Cmd, sval string) {
+	ival, err := strconv.Atoi(sval)
+	if err != nil {
+		http.Error(w, "Response Error", 500)
+		log.Println("Response Error (500)")
+		return
+	}
+
+	val := msg.Cmd_PwrValue(ival)
 
 	// TODO(jrubin) send a protobuf response
-	_, err = fmt.Fprintf(w, "%s\n", msg)
+
+	switch val {
+	case msg.Cmd_PWR_ON:
+		_, err = fmt.Fprintf(w, "pwr on")
+	case msg.Cmd_PWR_OFF:
+		_, err = fmt.Fprintf(w, "pwr off")
+	default:
+		http.Error(w, "pwr unknown: "+sval, 500)
+		log.Println("pwr unknown", sval, "(500)")
+		return
+	}
+
 	if err != nil {
 		http.Error(w, "Write Error", 500)
 		log.Println("Write Error (500)", err)
-		return
+	}
+}
+
+func (srv *Server) onRespVol(w http.ResponseWriter, cmd *msg.Cmd, val string) {
+	var res float32
+
+	if val == "-ZZ" {
+		res = -VOL_SCALE
+	} else {
+		intRes, err := strconv.Atoi(strings.TrimSpace(val))
+		if err != nil {
+			http.Error(w, "vol unknown: "+val, 500)
+			log.Println("vol unknown", val, "(500)")
+			return
+		}
+		res = float32(intRes)
+	}
+
+	res += VOL_SCALE
+	if _, err := fmt.Fprintf(w, "vol %.0f", res/VOL_MAX*100); err != nil {
+		http.Error(w, "Write Error", 500)
+		log.Println("Write Error (500)", err)
+	}
+}
+
+func srcToString(src uint8) string {
+	switch src {
+	case '1':
+		return "tv"
+	case '2':
+		return "dvd"
+	case '3':
+		return "vcr"
+	case '5':
+		return "dss"
+	case '9':
+		return "aux1"
+	case 'A':
+		return "aux2"
+	case 'C':
+		return "cd"
+	case 'E':
+		return "tape"
+	case 'F':
+		return "tuner"
+	case 'G':
+		return "fm"
+	case 'H':
+		return "am"
+	case 'J':
+		return "xm"
+	}
+
+	return "unknown"
+}
+
+func (srv *Server) onRespSrc(w http.ResponseWriter, cmd *msg.Cmd, val string) {
+	video := srcToString(val[0])
+	audio := srcToString(val[1])
+
+	if _, err := fmt.Fprintf(w, "video: %s, audio: %s", video, audio); err != nil {
+		http.Error(w, "Write Error", 500)
+		log.Println("Write Error (500)", err)
 	}
 }
 
 func (srv *Server) onCmdPwr(cmd *msg.Cmd) {
-	const CMD = "PWR"
-
 	if cmd.Pwr == nil {
-		srv.Serial.Write <- CMD + GET
+		srv.Serial.Write <- CMD_PWR + GET
 		return
 	}
 
-	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Pwr)
+	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD_PWR, *cmd.Pwr)
 }
 
-/*
- *    if res == "-ZZ" {
- *        floatRes = -scale
- *    } else {
- *        intRes, err := strconv.Atoi(strings.TrimSpace(res))
- *        floatRes = float32(intRes)
- *        if err != nil {
- *            fmt.Fprintln(os.Stderr, "invalid response from server", res, err)
- *            os.Exit(-1)
- *        }
- *    }
- *
- *    floatRes += scale
- *    fmt.Printf("%.0f\n", floatRes/max*100)
- */
-
 func (srv *Server) onCmdVol(cmd *msg.Cmd) {
-	const (
-		CMD   = "VOL"
-		SCALE = 72
-		MAX   = 90
-	)
-
 	if cmd.IntValue != nil {
 		val := float32(*cmd.IntValue)
 		switch {
 		case val <= 0:
-			val = -SCALE
+			val = -VOL_SCALE
 		case val >= 100:
-			val = MAX - SCALE
+			val = VOL_MAX - VOL_SCALE
 		default:
-			val = (val / 100 * MAX) - SCALE
+			val = (val / 100 * VOL_MAX) - VOL_SCALE
 		}
 
-		srv.Serial.Write <- fmt.Sprintf("%s:0%+02.0f", CMD, val)
+		srv.Serial.Write <- fmt.Sprintf("%s:0%+02.0f", CMD_VOL, val)
 		return
 	}
 
 	if cmd.Vol == nil {
-		srv.Serial.Write <- CMD + GET
+		srv.Serial.Write <- CMD_VOL + GET
 		return
 	}
 
-	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Vol)
+	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD_VOL, *cmd.Vol)
 }
 
 func (srv *Server) onCmdSrc(cmd *msg.Cmd) {
-	const (
-		CMD = "SRC"
-	)
-
 	if cmd.Src == nil {
-		srv.Serial.Write <- CMD + GET
+		srv.Serial.Write <- CMD_SRC + GET
 		return
 	}
 
 	val := *cmd.Src
 
 	if val < 10 {
-		log.Printf("Selecting source: %s:%d\n", CMD, val)
-		srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, val)
+		log.Printf("Selecting source: %s:%d\n", CMD_SRC, val)
+		srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD_SRC, val)
 		return
 	}
 
-	log.Printf("Selecting source: %s:%c\n", CMD, val-10+'A')
-	srv.Serial.Write <- fmt.Sprintf("%s:%c", CMD, val-10+'A')
+	log.Printf("Selecting source: %s:%c\n", CMD_SRC, val-10+'A')
+	srv.Serial.Write <- fmt.Sprintf("%s:%c", CMD_SRC, val-10+'A')
 }
