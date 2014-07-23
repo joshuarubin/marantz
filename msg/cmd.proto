@@ -6,6 +6,7 @@ message Cmd {
     CMD_RAW   = 1;
     CMD_PWR   = 2;
     CMD_VOL   = 3;
+    CMD_SRC   = 4;
   }
 
   enum PwrValue {
@@ -20,9 +21,25 @@ message Cmd {
     VOL_DOWN_FAST = 4;
   }
 
+  enum SrcValue {
+    SRC_TV       = 1;
+    SRC_DVD      = 2;
+    SRC_VCR1     = 3;
+    SRC_DSS_VCR2 = 5;
+    SRC_AUX1     = 9;
+    SRC_AUX2     = 10;
+    SRC_CD_CDR   = 12;
+    SRC_TAPE     = 14;
+    SRC_TUNER1   = 15;
+    SRC_FM1      = 16;
+    SRC_AM1      = 17;
+    SRC_XM1      = 19;
+  }
+
   required Cmd           cmd = 1;
   optional int32    intValue = 2;
   optional string   strValue = 3;
   optional PwrValue      pwr = 4;
   optional VolValue      vol = 5;
+  optional SrcValue      src = 6;
 }

@@ -30,6 +30,7 @@ const (
 	Cmd_CMD_RAW   Cmd_Cmd = 1
 	Cmd_CMD_PWR   Cmd_Cmd = 2
 	Cmd_CMD_VOL   Cmd_Cmd = 3
+	Cmd_CMD_SRC   Cmd_Cmd = 4
 )
 
 var Cmd_Cmd_name = map[int32]string{
@@ -37,12 +38,14 @@ var Cmd_Cmd_name = map[int32]string{
 	1: "CMD_RAW",
 	2: "CMD_PWR",
 	3: "CMD_VOL",
+	4: "CMD_SRC",
 }
 var Cmd_Cmd_value = map[string]int32{
 	"CMD_CLOSE": 0,
 	"CMD_RAW":   1,
 	"CMD_PWR":   2,
 	"CMD_VOL":   3,
+	"CMD_SRC":   4,
 }
 
 func (x Cmd_Cmd) Enum() *Cmd_Cmd {
@@ -134,12 +137,76 @@ func (x *Cmd_VolValue) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type Cmd_SrcValue int32
+
+const (
+	Cmd_SRC_TV       Cmd_SrcValue = 1
+	Cmd_SRC_DVD      Cmd_SrcValue = 2
+	Cmd_SRC_VCR1     Cmd_SrcValue = 3
+	Cmd_SRC_DSS_VCR2 Cmd_SrcValue = 5
+	Cmd_SRC_AUX1     Cmd_SrcValue = 9
+	Cmd_SRC_AUX2     Cmd_SrcValue = 10
+	Cmd_SRC_CD_CDR   Cmd_SrcValue = 12
+	Cmd_SRC_TAPE     Cmd_SrcValue = 14
+	Cmd_SRC_TUNER1   Cmd_SrcValue = 15
+	Cmd_SRC_FM1      Cmd_SrcValue = 16
+	Cmd_SRC_AM1      Cmd_SrcValue = 17
+	Cmd_SRC_XM1      Cmd_SrcValue = 19
+)
+
+var Cmd_SrcValue_name = map[int32]string{
+	1:  "SRC_TV",
+	2:  "SRC_DVD",
+	3:  "SRC_VCR1",
+	5:  "SRC_DSS_VCR2",
+	9:  "SRC_AUX1",
+	10: "SRC_AUX2",
+	12: "SRC_CD_CDR",
+	14: "SRC_TAPE",
+	15: "SRC_TUNER1",
+	16: "SRC_FM1",
+	17: "SRC_AM1",
+	19: "SRC_XM1",
+}
+var Cmd_SrcValue_value = map[string]int32{
+	"SRC_TV":       1,
+	"SRC_DVD":      2,
+	"SRC_VCR1":     3,
+	"SRC_DSS_VCR2": 5,
+	"SRC_AUX1":     9,
+	"SRC_AUX2":     10,
+	"SRC_CD_CDR":   12,
+	"SRC_TAPE":     14,
+	"SRC_TUNER1":   15,
+	"SRC_FM1":      16,
+	"SRC_AM1":      17,
+	"SRC_XM1":      19,
+}
+
+func (x Cmd_SrcValue) Enum() *Cmd_SrcValue {
+	p := new(Cmd_SrcValue)
+	*p = x
+	return p
+}
+func (x Cmd_SrcValue) String() string {
+	return proto.EnumName(Cmd_SrcValue_name, int32(x))
+}
+func (x *Cmd_SrcValue) UnmarshalJSON(data []byte) error {
+	value, err := proto.UnmarshalJSONEnum(Cmd_SrcValue_value, data, "Cmd_SrcValue")
+	if err != nil {
+		return err
+	}
+	*x = Cmd_SrcValue(value)
+	return nil
+}
+
 type Cmd struct {
 	Cmd              *Cmd_Cmd      `protobuf:"varint,1,req,name=cmd,enum=msg.Cmd_Cmd" json:"cmd,omitempty"`
 	IntValue         *int32        `protobuf:"varint,2,opt,name=intValue" json:"intValue,omitempty"`
 	StrValue         *string       `protobuf:"bytes,3,opt,name=strValue" json:"strValue,omitempty"`
 	Pwr              *Cmd_PwrValue `protobuf:"varint,4,opt,name=pwr,enum=msg.Cmd_PwrValue" json:"pwr,omitempty"`
 	Vol              *Cmd_VolValue `protobuf:"varint,5,opt,name=vol,enum=msg.Cmd_VolValue" json:"vol,omitempty"`
+	Src              *Cmd_SrcValue `protobuf:"varint,6,opt,name=src,enum=msg.Cmd_SrcValue" json:"src,omitempty"`
 	XXX_unrecognized []byte        `json:"-"`
 }
 
@@ -182,8 +249,16 @@ func (m *Cmd) GetVol() Cmd_VolValue {
 	return Cmd_VOL_UP
 }
 
+func (m *Cmd) GetSrc() Cmd_SrcValue {
+	if m != nil && m.Src != nil {
+		return *m.Src
+	}
+	return Cmd_SRC_TV
+}
+
 func init() {
 	proto.RegisterEnum("msg.Cmd_Cmd", Cmd_Cmd_name, Cmd_Cmd_value)
 	proto.RegisterEnum("msg.Cmd_PwrValue", Cmd_PwrValue_name, Cmd_PwrValue_value)
 	proto.RegisterEnum("msg.Cmd_VolValue", Cmd_VolValue_name, Cmd_VolValue_value)
+	proto.RegisterEnum("msg.Cmd_SrcValue", Cmd_SrcValue_name, Cmd_SrcValue_value)
 }

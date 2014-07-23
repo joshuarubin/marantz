@@ -12,6 +12,8 @@ import (
 	"github.com/joshuarubin/marantz/serialport"
 )
 
+const GET = ":?"
+
 type HostConfig struct {
 	Host string
 	Port uint
@@ -70,6 +72,8 @@ func (srv *Server) cmdHandler(w http.ResponseWriter, r *http.Request) {
 		srv.onCmdPwr(cmd)
 	case msg.Cmd_CMD_VOL:
 		srv.onCmdVol(cmd)
+	case msg.Cmd_CMD_SRC:
+		srv.onCmdSrc(cmd)
 	}
 
 	// TODO(jrubin) wait for the 'correct' response for the given command
@@ -88,7 +92,7 @@ func (srv *Server) onCmdPwr(cmd *msg.Cmd) {
 	const CMD = "PWR"
 
 	if cmd.Pwr == nil {
-		srv.Serial.Write <- CMD + ":?"
+		srv.Serial.Write <- CMD + GET
 		return
 	}
 
@@ -134,9 +138,31 @@ func (srv *Server) onCmdVol(cmd *msg.Cmd) {
 	}
 
 	if cmd.Vol == nil {
-		srv.Serial.Write <- CMD + ":?"
+		srv.Serial.Write <- CMD + GET
 		return
 	}
 
 	srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, *cmd.Vol)
+}
+
+func (srv *Server) onCmdSrc(cmd *msg.Cmd) {
+	const (
+		CMD = "SRC"
+	)
+
+	if cmd.Src == nil {
+		srv.Serial.Write <- CMD + GET
+		return
+	}
+
+	val := *cmd.Src
+
+	if val < 10 {
+		log.Printf("Selecting source: %s:%d\n", CMD, val)
+		srv.Serial.Write <- fmt.Sprintf("%s:%d", CMD, val)
+		return
+	}
+
+	log.Printf("Selecting source: %s:%c\n", CMD, val-10+'A')
+	srv.Serial.Write <- fmt.Sprintf("%s:%c", CMD, val-10+'A')
 }
