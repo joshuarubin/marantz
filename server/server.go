@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/gogoprotobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/joshuarubin/marantz/msg"
 	"github.com/joshuarubin/marantz/serialport"
 )

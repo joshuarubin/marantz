@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"code.google.com/p/gogoprotobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/joshuarubin/marantz/client"
 	"github.com/joshuarubin/marantz/msg"
 	"github.com/spf13/cobra"
